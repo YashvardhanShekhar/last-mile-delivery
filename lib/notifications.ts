@@ -21,9 +21,18 @@ export interface NotificationPayload {
   rescheduleDate?: Date | null;
 }
 
+export interface NotificationResult {
+  emailSent: boolean;
+  emailTo: string;
+  intendedEmail: string;
+  emailDiverted: boolean;
+  emailError?: string;
+  smsSent: boolean;
+}
+
 export async function notifyOrderStatusChange(
   payload: NotificationPayload
-): Promise<void> {
+): Promise<NotificationResult> {
   const label = STATUS_LABELS[payload.status];
   const orderRef = payload.orderId.slice(-8).toUpperCase();
   const subject = `Order ${orderRef} — ${label}`;
@@ -49,7 +58,7 @@ export async function notifyOrderStatusChange(
     status: payload.status,
   });
 
-  await Promise.all([
+  const [emailResult, smsSent] = await Promise.all([
     sendEmail({
       to: payload.customerEmail,
       subject,
@@ -58,10 +67,19 @@ export async function notifyOrderStatusChange(
     }),
     sendSms(payload.customerPhone, `${label}: Order ${orderRef}`),
   ]);
+
+  return {
+    emailSent: emailResult.sent,
+    emailTo: emailResult.to,
+    intendedEmail: emailResult.intendedTo,
+    emailDiverted: emailResult.diverted,
+    emailError: emailResult.error,
+    smsSent,
+  };
 }
 
-async function sendSms(phone: string | null | undefined, message: string) {
-  if (!phone) return;
+async function sendSms(phone: string | null | undefined, message: string): Promise<boolean> {
+  if (!phone) return false;
 
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
@@ -69,7 +87,7 @@ async function sendSms(phone: string | null | undefined, message: string) {
 
   if (!sid || !token || !from) {
     console.log("[sms:dev]", { phone, message });
-    return;
+    return false;
   }
 
   try {
@@ -80,7 +98,7 @@ async function sendSms(phone: string | null | undefined, message: string) {
       Body: message,
     });
 
-    await fetch(
+    const res = await fetch(
       `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`,
       {
         method: "POST",
@@ -91,7 +109,10 @@ async function sendSms(phone: string | null | undefined, message: string) {
         body: body.toString(),
       }
     );
+
+    return res.ok;
   } catch (err) {
     console.error("[sms:error]", err);
+    return false;
   }
 }

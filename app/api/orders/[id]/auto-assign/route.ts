@@ -13,8 +13,8 @@ export async function POST(
     if (!requireRole(user, Role.ADMIN)) return jsonError("Forbidden", 403);
 
     const { id } = await params;
-    const order = await autoAssignAgent(id, user!.id);
-    return jsonOk(order);
+    const { order, notification } = await autoAssignAgent(id, user!.id);
+    return jsonOk({ ...order, notification });
   } catch (err) {
     return handleApiError(err);
   }

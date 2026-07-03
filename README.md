@@ -10,7 +10,7 @@ A full-stack delivery management platform with zone-based pricing, intelligent a
 - **Assignment**: Manual or auto-assign nearest available agent (GPS + zone heuristics)
 - **Tracking**: Live status + immutable timeline with actor and timestamp
 - **Failed delivery**: Customer notified, reschedule flow, agent reassigned
-- **Notifications**: Email (Resend) + SMS (Twilio) on every status change
+- **Notifications**: Email (Gmail) + SMS (Twilio) on every status change
 
 ## Tech Stack
 
@@ -18,7 +18,7 @@ A full-stack delivery management platform with zone-based pricing, intelligent a
 - **Backend**: Next.js API Routes
 - **Database**: PostgreSQL + Prisma ORM
 - **Auth**: JWT (Bearer token)
-- **Email**: [Resend](https://resend.com) free tier
+- **Email**: Gmail (Nodemailer + App Password)
 - **SMS**: [Twilio](https://twilio.com) trial (optional)
 
 ## Quick Start
@@ -44,7 +44,8 @@ cp .env.example .env
 | `DIRECT_URL` | Direct PostgreSQL URL for migrations (port 5432) |
 | `JWT_SECRET` | Random secret for JWT signing |
 | `NEXT_PUBLIC_APP_URL` | Public app URL for notification links |
-| `RESEND_API_KEY` | Optional — emails log to console without it |
+| `GMAIL_USER` | Gmail address used to send order notifications |
+| `GMAIL_APP_PASSWORD` | Google App Password (with 2FA enabled) |
 | `TWILIO_*` | Optional — SMS logs to console without it |
 
 ### 3. Database

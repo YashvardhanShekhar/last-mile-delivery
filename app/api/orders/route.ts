@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
       if (!customer) return jsonError("Customer not found", 404);
     }
 
-    const order = await createOrderWithHistory({
+    const { order } = await createOrderWithHistory({
       ...body,
       customerId,
       createdById: user.id,

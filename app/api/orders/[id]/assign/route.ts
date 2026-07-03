@@ -24,8 +24,8 @@ export async function POST(
     });
     if (!agent) return jsonError("Agent not found", 404);
 
-    const order = await assignAgent(id, body.agentId, user!.id);
-    return jsonOk(order);
+    const { order, notification } = await assignAgent(id, body.agentId, user!.id);
+    return jsonOk({ ...order, notification });
   } catch (err) {
     return handleApiError(err);
   }

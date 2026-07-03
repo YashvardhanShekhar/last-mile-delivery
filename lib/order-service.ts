@@ -59,8 +59,8 @@ export async function createOrderWithHistory(
     return created;
   });
 
-  await notifyCustomer(order, OrderStatus.CREATED);
-  return order;
+  const notification = await notifyCustomer(order, OrderStatus.CREATED);
+  return { order, notification };
 }
 
 export async function assignAgent(
@@ -89,8 +89,8 @@ export async function assignAgent(
     return updated;
   });
 
-  await notifyCustomer(order, OrderStatus.ASSIGNED);
-  return order;
+  const notification = await notifyCustomer(order, OrderStatus.ASSIGNED);
+  return { order, notification };
 }
 
 export async function autoAssignAgent(orderId: string, changedById: string) {
@@ -126,8 +126,8 @@ export async function updateOrderStatus(
     return updated;
   });
 
-  await notifyCustomer(order, status, options?.message);
-  return order;
+  const notification = await notifyCustomer(order, status, options?.message);
+  return { order, notification };
 }
 
 export async function rescheduleFailedOrder(
@@ -168,7 +168,7 @@ export async function rescheduleFailedOrder(
     return o;
   });
 
-  await notifyCustomer(updated, OrderStatus.CREATED, "Delivery rescheduled");
+  const notification = await notifyCustomer(updated, OrderStatus.CREATED, "Delivery rescheduled");
 
   // Re-auto-assign for the new attempt
   try {
@@ -188,7 +188,7 @@ async function notifyCustomer(
   status: OrderStatus,
   message?: string
 ) {
-  await notifyOrderStatusChange({
+  return notifyOrderStatusChange({
     orderId: order.id,
     customerEmail: order.customer.email,
     customerPhone: order.customer.phone,

@@ -25,11 +25,11 @@ export async function PATCH(
     const { id } = await params;
     const body = schema.parse(await request.json());
 
-    const order = await prisma.order.findUnique({ where: { id } });
-    if (!order) return jsonError("Order not found", 404);
+    const existingOrder = await prisma.order.findUnique({ where: { id } });
+    if (!existingOrder) return jsonError("Order not found", 404);
 
     if (user.role === Role.AGENT) {
-      if (order.agentId !== user.id) return jsonError("Forbidden", 403);
+      if (existingOrder.agentId !== user.id) return jsonError("Forbidden", 403);
       if (!AGENT_STATUSES.includes(body.status)) {
         return jsonError("Agents cannot set this status", 400);
       }
@@ -39,14 +39,14 @@ export async function PATCH(
       return jsonError("Forbidden", 403);
     }
 
-    const updated = await updateOrderStatus(
+    const { order, notification } = await updateOrderStatus(
       id,
       body.status,
       user.id,
       { message: body.message }
     );
 
-    return jsonOk(updated);
+    return jsonOk({ ...order, notification });
   } catch (err) {
     return handleApiError(err);
   }

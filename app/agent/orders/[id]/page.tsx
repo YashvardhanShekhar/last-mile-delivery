@@ -7,6 +7,8 @@ import { AuthGuard } from "@/components/auth-guard";
 import { StatusBadge } from "@/components/status-badge";
 import { TrackingTimeline } from "@/components/tracking-timeline";
 import { api } from "@/lib/api-client";
+import { showNotificationToast } from "@/lib/notification-toast";
+import type { NotificationResult } from "@/lib/notifications";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { OrderStatus } from "@prisma/client";
@@ -47,10 +49,16 @@ export default function AgentOrderPage() {
   }, [id]);
 
   async function updateStatus(status: OrderStatus) {
-    await api(`/api/orders/${id}/status`, {
-      method: "PATCH",
-      body: JSON.stringify({ status }),
-    });
+    const result = await api<OrderDetail & { notification?: NotificationResult }>(
+      `/api/orders/${id}/status`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      }
+    );
+    if (result.notification) {
+      showNotificationToast(result.notification);
+    }
     load();
   }
 

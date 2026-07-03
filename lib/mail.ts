@@ -1,10 +1,20 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 
-const resend = process.env.RESEND_API_KEY
-  ? new Resend(process.env.RESEND_API_KEY)
-  : null;
+const GMAIL_USER = process.env.GMAIL_USER?.trim();
+const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD?.replace(/\s+/g, "");
 
-const FROM_EMAIL = process.env.FROM_EMAIL || "onboarding@resend.dev";
+const transporter =
+  GMAIL_USER && GMAIL_APP_PASSWORD
+    ? nodemailer.createTransport({
+        host: "smtp.gmail.com",
+        port: 587,
+        secure: false,
+        auth: {
+          user: GMAIL_USER,
+          pass: GMAIL_APP_PASSWORD,
+        },
+      })
+    : null;
 
 export interface SendEmailInput {
   to: string;
@@ -13,35 +23,58 @@ export interface SendEmailInput {
   html?: string;
 }
 
+export interface SendEmailResult {
+  sent: boolean;
+  to: string;
+  intendedTo: string;
+  diverted: boolean;
+  error?: string;
+}
+
 export async function sendEmail({
   to,
   subject,
   text,
   html,
-}: SendEmailInput): Promise<boolean> {
-  if (!resend) {
-    console.log("[email:dev]", { to, subject, text });
-    return false;
+}: SendEmailInput): Promise<SendEmailResult> {
+  const intendedTo = to;
+
+  if (!transporter || !GMAIL_USER) {
+    console.log("[email:dev]", { to: intendedTo, subject, text });
+    return {
+      sent: false,
+      to: intendedTo,
+      intendedTo,
+      diverted: false,
+      error: "Gmail is not configured. Set GMAIL_USER and GMAIL_APP_PASSWORD in .env",
+    };
   }
 
   try {
-    const { error } = await resend.emails.send({
-      from: FROM_EMAIL,
-      to,
+    await transporter.sendMail({
+      from: `"Last Mile Delivery" <${GMAIL_USER}>`,
+      to: intendedTo,
       subject,
       text,
       html: html ?? text.replace(/\n/g, "<br>"),
     });
 
-    if (error) {
-      console.error("[email:error]", error);
-      return false;
-    }
-
-    return true;
+    return {
+      sent: true,
+      to: intendedTo,
+      intendedTo,
+      diverted: false,
+    };
   } catch (err) {
+    const message = err instanceof Error ? err.message : "Email send failed";
     console.error("[email:error]", err);
-    return false;
+    return {
+      sent: false,
+      to: intendedTo,
+      intendedTo,
+      diverted: false,
+      error: message,
+    };
   }
 }
 

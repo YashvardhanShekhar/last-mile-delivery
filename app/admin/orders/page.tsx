@@ -7,6 +7,8 @@ import { AppShell } from "@/components/app-shell";
 import { AuthGuard } from "@/components/auth-guard";
 import { StatusBadge } from "@/components/status-badge";
 import { api } from "@/lib/api-client";
+import { showNotificationToast } from "@/lib/notification-toast";
+import type { NotificationResult } from "@/lib/notifications";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -83,25 +85,37 @@ export default function AdminOrdersPage() {
   }, [status, zoneId, agentId]);
 
   async function assign(orderId: string, selectedAgentId: string) {
-    await api(`/api/orders/${orderId}/assign`, {
-      method: "POST",
-      body: JSON.stringify({ agentId: selectedAgentId }),
-    });
+    const result = await api<{ notification?: NotificationResult }>(
+      `/api/orders/${orderId}/assign`,
+      {
+        method: "POST",
+        body: JSON.stringify({ agentId: selectedAgentId }),
+      }
+    );
+    if (result.notification) showNotificationToast(result.notification);
     load();
   }
 
   async function autoAssign(orderId: string) {
-    await api(`/api/orders/${orderId}/auto-assign`, { method: "POST" });
+    const result = await api<{ notification?: NotificationResult }>(
+      `/api/orders/${orderId}/auto-assign`,
+      { method: "POST" }
+    );
+    if (result.notification) showNotificationToast(result.notification);
     load();
   }
 
   async function applyStatusOverride(orderId: string) {
     const s = overrideStatus[orderId];
     if (!s) return;
-    await api(`/api/orders/${orderId}/status`, {
-      method: "PATCH",
-      body: JSON.stringify({ status: s }),
-    });
+    const result = await api<{ notification?: NotificationResult }>(
+      `/api/orders/${orderId}/status`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ status: s }),
+      }
+    );
+    if (result.notification) showNotificationToast(result.notification);
     load();
   }
 
