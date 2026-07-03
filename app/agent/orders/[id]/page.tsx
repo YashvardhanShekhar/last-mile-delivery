@@ -39,6 +39,7 @@ interface OrderDetail {
 export default function AgentOrderPage() {
   const { id } = useParams<{ id: string }>();
   const [order, setOrder] = useState<OrderDetail | null>(null);
+  const [updatingStatus, setUpdatingStatus] = useState<OrderStatus | null>(null);
 
   function load() {
     api<OrderDetail>(`/api/orders/${id}`).then(setOrder);
@@ -49,17 +50,22 @@ export default function AgentOrderPage() {
   }, [id]);
 
   async function updateStatus(status: OrderStatus) {
-    const result = await api<OrderDetail & { notification?: NotificationResult }>(
-      `/api/orders/${id}/status`,
-      {
-        method: "PATCH",
-        body: JSON.stringify({ status }),
+    setUpdatingStatus(status);
+    try {
+      const result = await api<OrderDetail & { notification?: NotificationResult }>(
+        `/api/orders/${id}/status`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ status }),
+        }
+      );
+      if (result.notification) {
+        showNotificationToast(result.notification);
       }
-    );
-    if (result.notification) {
-      showNotificationToast(result.notification);
+      load();
+    } finally {
+      setUpdatingStatus(null);
     }
-    load();
   }
 
   if (!order) {
@@ -100,8 +106,9 @@ export default function AgentOrderPage() {
                     key={s}
                     variant={s === "FAILED" ? "outline" : "default"}
                     onClick={() => updateStatus(s)}
+                    disabled={!!updatingStatus}
                   >
-                    Mark {s.replace(/_/g, " ")}
+                    {updatingStatus === s ? "Processing..." : `Mark ${s.replace(/_/g, " ")}`}
                   </Button>
                 ))}
               </div>

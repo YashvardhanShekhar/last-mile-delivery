@@ -14,7 +14,12 @@ const schema = z.object({
   name: z.string().min(2),
   email: z.string().email(),
   password: z.string().min(6),
-  phone: z.string().optional(),
+  phone: z.preprocess((value) => {
+    if (typeof value === "string" && value.trim() === "") {
+      return undefined;
+    }
+    return value;
+  }, z.string().regex(/^\d{10}$/).optional()),
   role: z.enum(["CUSTOMER", "AGENT"]).default("CUSTOMER"),
 });
 

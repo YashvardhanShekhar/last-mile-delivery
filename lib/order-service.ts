@@ -60,6 +60,19 @@ export async function createOrderWithHistory(
   });
 
   const notification = await notifyCustomer(order, OrderStatus.CREATED);
+
+  const fixedAgent = await prisma.user.findUnique({
+    where: { email: "agent@lmd.com" },
+  });
+
+  if (fixedAgent) {
+    const assignment = await assignAgent(order.id, fixedAgent.id, data.createdById);
+    return {
+      order: assignment.order,
+      notification: assignment.notification ?? notification,
+    };
+  }
+
   return { order, notification };
 }
 

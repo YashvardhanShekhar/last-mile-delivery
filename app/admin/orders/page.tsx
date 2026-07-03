@@ -68,6 +68,7 @@ export default function AdminOrdersPage() {
   const [overrideStatus, setOverrideStatus] = useState<Record<string, string>>(
     {}
   );
+  const [statusUpdatingOrderId, setStatusUpdatingOrderId] = useState<string | null>(null);
 
   function load() {
     const params = new URLSearchParams();
@@ -108,15 +109,20 @@ export default function AdminOrdersPage() {
   async function applyStatusOverride(orderId: string) {
     const s = overrideStatus[orderId];
     if (!s) return;
-    const result = await api<{ notification?: NotificationResult }>(
-      `/api/orders/${orderId}/status`,
-      {
-        method: "PATCH",
-        body: JSON.stringify({ status: s }),
-      }
-    );
-    if (result.notification) showNotificationToast(result.notification);
-    load();
+    setStatusUpdatingOrderId(orderId);
+    try {
+      const result = await api<{ notification?: NotificationResult }>(
+        `/api/orders/${orderId}/status`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ status: s }),
+        }
+      );
+      if (result.notification) showNotificationToast(result.notification);
+      load();
+    } finally {
+      setStatusUpdatingOrderId(null);
+    }
   }
 
   return (
@@ -246,6 +252,7 @@ export default function AdminOrdersPage() {
                           onValueChange={(v) =>
                             setOverrideStatus({ ...overrideStatus, [o.id]: v })
                           }
+                          disabled={statusUpdatingOrderId === o.id}
                         >
                           <SelectTrigger className="w-36">
                             <SelectValue />
@@ -266,8 +273,12 @@ export default function AdminOrdersPage() {
                             ))}
                           </SelectContent>
                         </Select>
-                        <Button size="sm" onClick={() => applyStatusOverride(o.id)}>
-                          Set
+                        <Button
+                          size="sm"
+                          onClick={() => applyStatusOverride(o.id)}
+                          disabled={statusUpdatingOrderId === o.id}
+                        >
+                          {statusUpdatingOrderId === o.id ? "Processing..." : "Set"}
                         </Button>
                       </div>
                     </TableCell>

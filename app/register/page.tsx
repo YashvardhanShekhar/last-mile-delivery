@@ -23,12 +23,21 @@ export default function RegisterPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
+    if (form.phone && !/^\d{10}$/.test(form.phone)) {
+      setError("Phone must be exactly 10 digits.");
+      setLoading(false);
+      return;
+    }
     try {
       const data = await api<{ user: { id: string; name: string; email: string; role: "CUSTOMER" }; token: string }>(
         "/api/auth/register",
         {
           method: "POST",
-          body: JSON.stringify({ ...form, role: "CUSTOMER" }),
+          body: JSON.stringify({
+            ...form,
+            phone: form.phone.trim() === "" ? undefined : form.phone,
+            role: "CUSTOMER",
+          }),
         }
       );
       setAuth(data.token, data.user);
@@ -62,7 +71,10 @@ export default function RegisterPage() {
               required
             />
             <Input
-              placeholder="Phone (for SMS updates)"
+              type="tel"
+              placeholder="Phone (10 digits)"
+              inputMode="numeric"
+              maxLength={10}
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
             />
