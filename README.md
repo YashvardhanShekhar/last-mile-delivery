@@ -1,36 +1,200 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Last-Mile Delivery Tracker
 
-## Getting Started
+A full-stack delivery management platform with zone-based pricing, intelligent agent assignment, immutable order tracking, and email/SMS notifications.
 
-First, run the development server:
+## Features
+
+- **Role-based auth**: Customer, Delivery Agent, Admin
+- **Rate engine**: Pincode → zone detection, volumetric weight (L×B×H÷5000), B2B/B2C rate cards, COD surcharge — all admin-configurable
+- **Orders**: Quote before confirm, admin can create on behalf of customers
+- **Assignment**: Manual or auto-assign nearest available agent (GPS + zone heuristics)
+- **Tracking**: Live status + immutable timeline with actor and timestamp
+- **Failed delivery**: Customer notified, reschedule flow, agent reassigned
+- **Notifications**: Email (Resend) + SMS (Twilio) on every status change
+
+## Tech Stack
+
+- **Frontend**: Next.js 16 (App Router), React 19, Tailwind CSS, shadcn/ui
+- **Backend**: Next.js API Routes
+- **Database**: PostgreSQL + Prisma ORM
+- **Auth**: JWT (Bearer token)
+- **Email**: [Resend](https://resend.com) free tier
+- **SMS**: [Twilio](https://twilio.com) trial (optional)
+
+## Quick Start
+
+### 1. Clone & install
+
+```bash
+cd last-mile-delivery
+npm install
+```
+
+### 2. Environment
+
+Copy `.env.example` to `.env` and set:
+
+```bash
+cp .env.example .env
+```
+
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | PostgreSQL connection (pooled, e.g. Supabase port 6543) |
+| `DIRECT_URL` | Direct PostgreSQL URL for migrations (port 5432) |
+| `JWT_SECRET` | Random secret for JWT signing |
+| `NEXT_PUBLIC_APP_URL` | Public app URL for notification links |
+| `RESEND_API_KEY` | Optional — emails log to console without it |
+| `TWILIO_*` | Optional — SMS logs to console without it |
+
+### 3. Database
+
+```bash
+npm run db:setup
+```
+
+This runs `prisma db push` and seeds demo data.
+
+### 4. Run locally
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Demo accounts (after seed)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | admin@lmd.com | password123 |
+| Customer | customer@lmd.com | password123 |
+| Agent | agent@lmd.com | password123 |
 
-## Learn More
+**Sample pincodes**: 110054 (North), 110016 (South), 110092 (East)
 
-To learn more about Next.js, take a look at the following resources:
+## Deployment
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Vercel (recommended)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Push to GitHub
+2. Import project in Vercel
+3. Add env vars from `.env.example`
+4. Use Supabase/Neon PostgreSQL
+5. Run `npm run db:setup` against production DB (locally with prod `DATABASE_URL`)
 
-## Deploy on Vercel
+Build command: `npm run build`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Hosted URL
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Deploy to Vercel and set `NEXT_PUBLIC_APP_URL` to your production domain.
+
+> **Note**: Replace `[YOUR-DEPLOYED-URL]` in submissions with your Vercel URL after deployment.
+
+## Database Schema
+
+```
+User          — id, name, email, password, role, phone, lat/lng, available
+Zone          — id, name
+Area          — id, name, pincode (unique), zoneId
+RateCard      — pickupZoneId, dropZoneId, orderType, pricePerKg, codCharge
+Order         — shipment details, weights, charges, status, agentId, rescheduleDate
+OrderHistory  — immutable log: orderId, status, changedById, createdAt
+```
+
+See `prisma/schema.prisma` for full definitions and relations.
+
+## Rate Calculation Logic
+
+1. **Zone detection**: Lookup `Area` by pickup/drop pincode → get `Zone`
+2. **Volumetric weight**: `(L × B × H) / 5000` (cm → kg)
+3. **Billable weight**: `max(actualWeight, volumetricWeight)`
+4. **Rate lookup**: `RateCard` where `(pickupZone, dropZone, orderType)` — separate matrices for B2B and B2C; same zone = intra-zone rate
+5. **Base charge**: `billableWeight × pricePerKg`
+6. **COD surcharge**: Add `codCharge` from rate card when `paymentType = COD`
+7. **Total**: `baseCharge + codSurcharge`
+
+All rates and COD amounts are admin-configured — nothing is hardcoded in application logic.
+
+## API Documentation
+
+Base URL: `/api`  
+Auth: `Authorization: Bearer <token>`
+
+### Auth
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/auth/register` | Register customer (or agent via body.role) |
+| POST | `/auth/login` | Login, returns JWT |
+| GET | `/auth/me` | Current user |
+
+### Admin — Zones & Rates
+
+| Method | Path | Role | Description |
+|--------|------|------|-------------|
+| GET/POST | `/zones` | Admin POST | List/create zones |
+| PATCH/DELETE | `/zones/:id` | Admin | Update/delete zone |
+| GET/POST | `/areas` | Admin POST | List/create areas |
+| DELETE | `/areas/:id` | Admin | Remove area |
+| GET/POST | `/rate-cards` | Admin POST | List/create rate cards |
+| PATCH/DELETE | `/rate-cards/:id` | Admin | Update/delete rate card |
+| GET | `/customers` | Admin | List customers |
+| GET | `/agents` | Any auth | List agents |
+
+### Orders
+
+| Method | Path | Role | Description |
+|--------|------|------|-------------|
+| POST | `/orders/quote` | Auth | Preview charge (no order created) |
+| GET | `/orders` | Auth | List orders (filtered by role; admin query params: status, zoneId, agentId) |
+| POST | `/orders` | Customer/Admin | Create order (admin may pass customerId) |
+| GET | `/orders/:id` | Auth | Order detail + history |
+| POST | `/orders/:id/assign` | Admin | Manual agent assign |
+| POST | `/orders/:id/auto-assign` | Admin | Nearest available agent |
+| PATCH | `/orders/:id/status` | Agent/Admin | Update status |
+| POST | `/orders/:id/reschedule` | Customer | Reschedule failed delivery |
+
+### Agent
+
+| Method | Path | Description |
+|--------|------|-------------|
+| PATCH | `/agents/me/location` | Update GPS |
+| PATCH | `/agents/me/availability` | Toggle available flag |
+
+### Order status lifecycle
+
+```
+CREATED → ASSIGNED → PICKED_UP → IN_TRANSIT → OUT_FOR_DELIVERY → DELIVERED
+                                                              ↘ FAILED → (reschedule) → CREATED → ...
+```
+
+Each transition appends an immutable `OrderHistory` row.
+
+## Project Structure
+
+```
+app/
+  api/          — REST API routes
+  admin/        — Admin dashboard
+  agent/        — Agent dashboard
+  customer/     — Customer portal
+  login/        — Auth pages
+lib/
+  rate-calculator.ts   — Pricing engine
+  agent-assignment.ts  — Auto-assign logic
+  order-service.ts     — Order lifecycle + notifications
+  notifications.ts     — Email/SMS
+prisma/
+  schema.prisma
+  seed.ts
+SYSTEM_DESIGN.md       — Architecture write-up
+```
+
+## System Design
+
+See [SYSTEM_DESIGN.md](./SYSTEM_DESIGN.md) for the 800-word architecture document.
+
+## License
+
+MIT

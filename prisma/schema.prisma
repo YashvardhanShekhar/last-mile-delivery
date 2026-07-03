@@ -1,0 +1,179 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  CUSTOMER
+  AGENT
+}
+
+enum OrderType {
+  B2B
+  B2C
+}
+
+enum PaymentType {
+  PREPAID
+  COD
+}
+
+enum OrderStatus {
+  CREATED
+  ASSIGNED
+  PICKED_UP
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  phone     String?
+
+  role      Role
+
+  latitude  Float?
+  longitude Float?
+
+  available Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customerOrders Order[] @relation("CustomerOrders")
+  agentOrders    Order[] @relation("AgentOrders")
+
+  history OrderHistory[]
+}
+
+model Zone {
+  id   String @id @default(cuid())
+
+  name String @unique
+
+  areas Area[]
+
+  pickupOrders Order[] @relation("PickupZone")
+
+  dropOrders Order[] @relation("DropZone")
+
+  pickupRateCards RateCard[] @relation("PickupRate")
+
+  dropRateCards RateCard[] @relation("DropRate")
+}
+
+model Area {
+  id String @id @default(cuid())
+
+  name String
+
+  pincode String @unique
+
+  zoneId String
+
+  zone Zone @relation(fields: [zoneId], references: [id])
+}
+
+model RateCard {
+  id String @id @default(cuid())
+
+  pickupZoneId String
+
+  dropZoneId String
+
+  orderType OrderType
+
+  pricePerKg Float
+
+  codCharge Float
+
+  pickupZone Zone @relation("PickupRate", fields: [pickupZoneId], references: [id])
+
+  dropZone Zone @relation("DropRate", fields: [dropZoneId], references: [id])
+
+  @@unique([pickupZoneId, dropZoneId, orderType])
+}
+
+model Order {
+  id String @id @default(cuid())
+
+  customerId String
+
+  agentId String?
+
+  pickupZoneId String
+
+  dropZoneId String
+
+  pickupAddress String
+
+  pickupPincode String
+
+  dropAddress String
+
+  dropPincode String
+
+  length Float
+
+  breadth Float
+
+  height Float
+
+  actualWeight Float
+
+  volumetricWeight Float
+
+  billableWeight Float
+
+  baseCharge     Float
+  codSurcharge   Float @default(0)
+  deliveryCharge Float
+
+  orderType OrderType
+
+  paymentType PaymentType
+
+  status OrderStatus @default(CREATED)
+
+  rescheduleDate DateTime?
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  customer User @relation("CustomerOrders", fields: [customerId], references: [id])
+
+  agent User? @relation("AgentOrders", fields: [agentId], references: [id])
+
+  pickupZone Zone @relation("PickupZone", fields: [pickupZoneId], references: [id])
+
+  dropZone Zone @relation("DropZone", fields: [dropZoneId], references: [id])
+
+  history OrderHistory[]
+}
+
+model OrderHistory {
+  id String @id @default(cuid())
+
+  orderId String
+
+  status OrderStatus
+
+  changedById String
+
+  createdAt DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  changedBy User @relation(fields: [changedById], references: [id])
+}
