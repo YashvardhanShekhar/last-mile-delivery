@@ -48,6 +48,9 @@ cp .env.example .env
 | `GMAIL_APP_PASSWORD` | Google App Password (with 2FA enabled) |
 | `TWILIO_*` | Optional — SMS logs to console without it |
 
+
+updated readme.md
+
 ### 3. Database
 
 ```bash
